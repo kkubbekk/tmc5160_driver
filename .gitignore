@@ -1,0 +1,15 @@
+
+Debug/
+Release/
+*.bak
+*.gdb
+*.elf
+*.hex
+*.bin
+
+
+.mxproject
+*.ld
+
+.settings/
+.CDataConfiguration.txt
