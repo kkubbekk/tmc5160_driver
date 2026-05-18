@@ -1,6 +1,6 @@
 #include "tmc5160.h"
 #include <stdlib.h>
-
+//huj
 #define MAX_SAFE_VELOCITY 200000
 
 /////////////////////////////debilu ////////////////////
@@ -56,30 +56,35 @@ void TMC5160_Init(TMC5160_t *driver, TMC5160_Config_t *config) {
 
 	driver->state = TMC_STATE_CALIBRATING;
 
-	uint32_t strzal_val = 12 | (12 << 8) | (6 << 16);
-	    TMC5160_Write(driver, REG_IHOLD_IRUN, strzal_val);
-
-	//to do: najpierw trzeba jabnac pradem 800ma w przetwornice spikiem a pozniej mozna obnizyc;
 
 
-	HAL_Delay(75);
-
-    TMC5160_Write(driver, REG_GCONF, 0x00000004);
-    uint32_t current_val = (config->hold_current & 0x1F) |
-                           ((config->run_current & 0x1F) << 8) |
-                           (0x06 << 16);
-//    musze dodac acceleretion do hamowania
-//    REG_VSTART dodac i doczytac
-//    zeby sie zatrzymac
-//    TMC5160_Write(driver,REG)
-
-    HAL_Delay(100);
-    TMC5160_Write(driver, REG_IHOLD_IRUN, current_val);
-    TMC5160_Write(driver, REG_AMAX, config->acceleration);
-    TMC5160_Write(driver, REG_VMAX, config->max_velocity);
-    TMC5160_Write(driver, REG_RAMPMODE, 0);
+		    TMC5160_Write(driver, 0x01, 0x00000007); // GSTAT: Czyszczenie flag błędów po starcie zasilania
+		    TMC5160_Write(driver, 0x34, 0x00000000); // SW_MODE:  wyłączenie krańcówek!
+		    TMC5160_Write(driver, 0x21, 0x00000000); // XACTUAL: Zerowanie pozycji na starcie
 
 
+		    TMC5160_Write(driver, 0x6C, 0x000100C3); // CHOPCONF: Tryb SpreadCycle (rekomendacja z noty)
+		    TMC5160_Write(driver, 0x11, 0x0000000A); // TPOWERDOWN: Czas do uśpienia silnika
+		    TMC5160_Write(driver, REG_GCONF, 0x00000004); // GCONF: Włączenie trybu cichego (StealthChop)
+		    TMC5160_Write(driver, 0x13, 0x000001F4); // TPWM_THRS: Próg prędkości dla trybu cichego
+
+
+		    uint32_t current_val = (config->hold_current & 0x1F) |
+		                           ((config->run_current & 0x1F) << 8) |
+		                           (0x06 << 16);
+		    TMC5160_Write(driver, REG_IHOLD_IRUN, current_val);
+
+
+		    TMC5160_Write(driver, 0x24, 1000);                   // A1: Akceleracja startowa przyspieszenie na poczatku przy starcie najlepiej zeby bylo wieksze no bo trzeba rozzruszac ta kurwe
+		    TMC5160_Write(driver, 0x25, 50000);                  // V1: Próg dla AMAX ponkt odciecia dla akceleracji startowej przy ilu krokkach/s ma sie przelalczyc na to zwykle A
+		    TMC5160_Write(driver, REG_AMAX, config->acceleration); // AMAX: Z Twojej konfiguracji glowne przyspieszenie
+		    TMC5160_Write(driver, REG_VMAX, config->max_velocity); // VMAX: Z Twojej konfiguracji predkosc przeltowoa podczas przemieszczniaa sie jesli uklad sie do niej dobije no to potem porusza sieruchem jednostajnym
+		    TMC5160_Write(driver, 0x28, 700);                    // DMAX: Hamowanie główne przyspieszenia hamowania uklad sam wylicza kiedy ma zaczac hamowac
+		    TMC5160_Write(driver, 0x2A, 1400);                   // D1: Hamowanie końcowe jak juz predkosc jest niska no to hamowanie wieksze szeby dorbze wycelowac w punmkt
+		    TMC5160_Write(driver, 0x2B, 10);                     // VSTOP: Minimalna prędkość zatrzymania
+		    TMC5160_Write(driver, REG_RAMPMODE, 0);				// tryb rampy 0 czyli pozycyjny se jedzi na target
+
+		    drive->state = TMC_STATE_READY;
 }
 
 //publicc api
@@ -100,6 +105,8 @@ void TMC5160_calibration_range(TMC5160_t *driver,int16_t sensitivity){
 	TMC5160_Write(driver,REG_XTARGET,-2000000000);
 	//petla sprawdzajaca status reg_stallguarda
 
+
+	//!! ultra wazne dodac timeout zeby nie utknac w petli hal_get_tick czy cos
 	while(1){
 		uint32_t status = TMC5160_Read(driver, REG_DRV_STATUS);
 		if(status & (1 <<24)){
@@ -161,7 +168,7 @@ int8_t TMC5160_read_target_percent(TMC5160_t *driver){
 	int8_t percent = ((100*target)/driver->total_range_steps);
 	return percent;
 }
-float TMC5160_read_voltage_irun(TMC5160_t *driver){
+float TMC5160_read_current_irun(TMC5160_t *driver){
 	uint32_t data = TMC5160_Read(driver, REG_IHOLD_IRUN);
 	data = (data >> 8) & 0x00ff;
 //	prad znamionowy jest 1,906A wiec
@@ -171,7 +178,7 @@ float TMC5160_read_voltage_irun(TMC5160_t *driver){
 }
 
 
-float TMC5160_read_voltage_ihold(TMC5160_t *driver){
+float TMC5160_read_current_ihold(TMC5160_t *driver){
 	uint32_t data = TMC5160_Read(driver, REG_IHOLD_IRUN);
 	data = data & 0x1f;
 //	prad znamionowy jest 1,906A wiec
@@ -235,7 +242,7 @@ int8_t TMC5160_RTOS_Quick_Check(TMC5160_t* driver) {
     }
 
     if (driver->status.reset_flag) {
-//        driver->state = TMC_STATE_UNINITIALIZED; nie jestem pewny narazie
+//        driver->state = TMC_STATE_UNIALIZED; nie jestem pewny narazie
         return 1; // Spadek napięcia
     }
 
@@ -248,28 +255,36 @@ int8_t TMC5160_RTOS_Quick_Check(TMC5160_t* driver) {
 }
 void TMC5160_DIAGNOSTIC(TMC5160_t* driver){
 
-	uint32_t drv_status = TMC5160_Read(driver,REG_DRV_STATUS);
-	if(drv_status & (1 <<25)){
-		driver->last_error = TMC_ERR_OVERTEMPERATURE;
-	}
-	else if(drv_status &(1 <<24)){
-		driver->last_error = TMC_ERR_STALL_DETECTED;
-	}
-	else if(drv_status &(1 <<28) || drv_status &(1<<27)){
-		driver-> last_error = TMC_ERR_SHORT_TO_GROUND;
-	}
-	else if(drv_status &(1<<29) || drv_status & (1<<30)){
-		driver-> last_error = TMC_ERR_OPEN_LOAD;
-	}
-	else if ((drv_status & (1 << 12)) || (drv_status & (1 << 13))) {
-	        driver->last_error = TMC_ERR_SHORT_TO_SUPPLY;
-	    }
-	else{
-		driver -> last_error = TMC_ERR_NONE;
+	    uint32_t s = TMC5160_Read(driver, REG_DRV_STATUS);
+
+	    if (s & (1 << 25))               driver->last_error = TMC_ERR_OVERTEMPERATURE;   // ot
+	    else if (s & (1 << 26))          driver->last_error = TMC_ERR_OVERTEMPERATURE;   // otpw (warning)
+	    else if (s & (1 << 24))          driver->last_error = TMC_ERR_STALL_DETECTED;    // StallGuard
+	    else if (s & ((1<<28)|(1<<27)))  driver->last_error = TMC_ERR_SHORT_TO_GROUND;   // s2ga/s2gb
+	    else if (s & ((1<<13)|(1<<12)))  driver->last_error = TMC_ERR_SHORT_TO_SUPPLY;   // s2vsa/s2vsb
+	    else if (s & ((1<<30)|(1<<29)))  driver->last_error = TMC_ERR_OPEN_LOAD;         // olb/ola
+	    else                             driver->last_error = TMC_ERR_NONE;
+
 	}
 
-}
 
+
+
+// to do jak przyjdzie enkoder no to dodac funckje odzczytujaca zgubione kroki z reg enc_deviation
+
+
+//dodac przerwania na krancowki ktore beda zatrzymyly nasz silniken czy cos jak zostana zrobione
+
+
+// dobrac dobrze parametry (sensitivity na stallguardzie,ogolnie wszsystkie parametry po kolei zweryfikowac startujace tez,
+// rozkiminic to kurcze blaszka)
+
+//popytac o przelutowanie rezysotow
+
+
+//pokombinowac z tym fsm zeby sie latwo debugowalo czy cos
+
+///
 
 
 

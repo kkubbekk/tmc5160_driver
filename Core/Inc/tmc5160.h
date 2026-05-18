@@ -48,7 +48,7 @@ typedef struct {
     TMC5160_State_t state; // w jakim stan
 
 
-    uint32_t total_range_steps;
+    uint32_t total_range_steps; // stepy z kalibracji 0-totalrange
 
 } TMC5160_t;
 
@@ -56,11 +56,11 @@ typedef struct {
 
 // 3. Konfiguracja użytkownika
 typedef struct {
-    uint8_t  run_current;
-    uint8_t  hold_current;
-    uint16_t microsteps;
-    uint32_t acceleration;
-    uint32_t max_velocity;
+    uint8_t  run_current; //prad podczas dzialania
+    uint8_t  hold_current; //prad podzac spoczynku
+    uint16_t microsteps; // ile mikrokrowko
+    uint32_t acceleration; // zadnaie przyspieszena
+    uint32_t max_velocity; // maksymalnej predkosci
 } TMC5160_Config_t;
 
 // 4. Rejestry
@@ -88,18 +88,18 @@ typedef union {
     } msg;
     uint8_t raw[5];
 } TMC_Frame_t;
-//6 stany silnika
 
 
 
-// 6. Prototypy (API)
+
+//chuj wie
 void TMC5160_Init(TMC5160_t *driver, TMC5160_Config_t *config);
 void TMC5160_Write(TMC5160_t *driver, uint8_t reg, uint32_t value);
 uint32_t TMC5160_Read(TMC5160_t *driver, uint8_t reg);
 void TMC5160_SetSpeedPercent(TMC5160_t *driver, uint8_t percent);
 void TMC5160_calibration_range(TMC5160_t *driver,int16_t sensitivity);
-float TMC5160_read_voltage_irun(TMC5160_t *driver);
-float TMC5160_read_voltage_ihold(TMC5160_t *driver);
+float TMC5160_read_current_irun(TMC5160_t *driver);
+float TMC5160_read_current_ihold(TMC5160_t *driver);
 
 
 
