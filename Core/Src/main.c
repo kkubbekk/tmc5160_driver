@@ -131,26 +131,28 @@ int main(void)
       if(HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK) {
           uint32_t adc_raw = HAL_ADC_GetValue(&hadc1);
           real_voltage = (((float)adc_raw * 3.3f) / 4095.0f) * 4.03f;
+          printf("napiecie: %.2f", real_voltage);
       }
       osDelay(100);
-  }
 
+  }
+    printf("napiencie zeszlo");
   // 2. Odpalenie zasilania i sterownika
   HAL_GPIO_WritePin(GPIOB, PWR_CONVERTER_EN_Pin, GPIO_PIN_SET);
   osDelay(2000);
   HAL_GPIO_WritePin(GPIOA, MOTOR_EN_Pin, GPIO_PIN_RESET); // Włącznik silnika (Active Low)
   osDelay(500);
 
-  // 3. Konfiguracja Twoim eleganckim API
   TMC5160_Config_t my_config = {
-      .run_current = 31,     // Maksymalny prąd z przykładu kolegi
+      .run_current = 31,     // Maksymalny prąd
       .hold_current = 10,
       .acceleration = 500,
       .max_velocity = 200000
   };
   TMC5160_Init(&motor, &my_config);
 
-  // 4. Ruszamy! (np. 10 obrotów do przodu: 10 * 51200)
+  // 4. Ruszamy! (np. 10 obrotów do
+
   TMC5160_Write(&motor, REG_XTARGET, 512000);
 
   /* USER CODE END 2 */

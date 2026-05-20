@@ -35,6 +35,7 @@ typedef enum {
 		TMC_STATE_ERROR,
 		TMC_STATE_MOVING,
 		TMC_STATE_CALIBRATING,
+		TMC_STATE_TIMEOUT_ERROR,
 	} TMC5160_State_t;
 
 // 2. Uchwyt sterownika
@@ -72,11 +73,23 @@ typedef enum {
     REG_XACTUAL    = 0x21,
     REG_VMAX       = 0x27,
     REG_AMAX       = 0x26,
+	REG_SW_MODE		=0x34,
     REG_CHOPCONF   = 0x6C,
+	REG_TPOWERDWN  =0x11,
+	REG_TPWMTHRS	=0x13,
 	REG_COOLCONF   = 0x6D,
 	REG_XTARGET    =0x2D,
 	REG_DRV_STATUS   = 0X6F,
-	REG_TCOOLTHRS =  0x14
+	REG_TCOOLTHRS =  0x14,
+	REG_ENC			=0x38,
+	REG_ENC_DEVIATION = 0x3D,
+	REG_A1			=0x24,
+	REG_V1			=0x25,
+	REG_DMAX		=0x28,
+	REG_D1 			=0x2A,
+	REG_VSTOP		=0x2B,
+	REG_TZEROWAIT  =0x2C
+
 
 } TMC5160_Reg_t;
 

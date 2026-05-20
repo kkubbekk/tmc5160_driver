@@ -2,6 +2,7 @@
 #include <stdlib.h>
 //huj
 #define MAX_SAFE_VELOCITY 200000
+#define TSTEP ((uint32_t)(16777216.0f / (MAX_SAFE_VELOCITY * 0.2f))) //2^24 wzor z dokumentacji
 
 /////////////////////////////debilu ////////////////////
 //$$I_{RMS} = \frac{IRUN + 1}{32} \cdot \frac{V_{FS}}{R_{SENSE} + 0.02} \cdot \frac{1}{\sqrt{2}}$$
@@ -18,8 +19,15 @@ static void TM_CS_High(TMC5160_t *driver) {
 }
 
 static uint8_t SPI_Direct_Transfer(SPI_TypeDef* SPIx, uint8_t byte) {
+//	uint32_t timeout = HAL_GetTick() + 20;
     *(volatile uint8_t *)&SPIx->DR = byte;
-    while(!(SPIx->SR & SPI_SR_RXNE));
+    while(!(SPIx->SR & SPI_SR_RXNE))
+    {
+//    	if(HAL_GetTick()> timeout)
+//    	{
+//    	return -1;
+//    	}
+    };
     return *(volatile uint8_t *)&SPIx->DR;
 }
 
@@ -28,6 +36,12 @@ void tm_send_data(TMC5160_t *driver, uint8_t *tx_ptr, uint8_t *rx_ptr_out) {
     TM_CS_Low(driver);
     for(int i = 0; i < 5; i++) {
         rx_local[i] = SPI_Direct_Transfer(driver->spi_instance, tx_ptr[i]);
+//        if(rx_local[1]==-1)
+//        {
+//        	driver->state = TMC_STATE_TIMEOUT_ERROR;
+//        	TM_CS_High(driver);
+//        	return;
+//        }
         if (rx_ptr_out != NULL) rx_ptr_out[i] = rx_local[i];
     }
     while (driver->spi_instance->SR & SPI_SR_BSY);
@@ -52,21 +66,22 @@ uint32_t TMC5160_Read(TMC5160_t *driver, uint8_t reg) {
     return __REV(rx.msg.payload);
 }
 
+// w inicie napewno zrobic zeby te wartosci dobieral uzytkownik najprosciej chyba w define to zrobic czy cos;
 void TMC5160_Init(TMC5160_t *driver, TMC5160_Config_t *config) {
 
 	driver->state = TMC_STATE_CALIBRATING;
 
 
 
-		    TMC5160_Write(driver, 0x01, 0x00000007); // GSTAT: Czyszczenie flag błędów po starcie zasilania
-		    TMC5160_Write(driver, 0x34, 0x00000000); // SW_MODE:  wyłączenie krańcówek!
-		    TMC5160_Write(driver, 0x21, 0x00000000); // XACTUAL: Zerowanie pozycji na starcie
+		    TMC5160_Write(driver, REG_GSTAT, 0x00000007); // GSTAT: Czyszczenie flag błędów po starcie zasilania
+		    TMC5160_Write(driver, REG_SW_MODE, 0x00000000); // SW_MODE:  wyłączenie krańcówek!
+		    TMC5160_Write(driver, REG_XACTUAL, 0x00000000); // XACTUAL: Zerowanie pozycji na starcie
 
 
-		    TMC5160_Write(driver, 0x6C, 0x000100C3); // CHOPCONF: Tryb SpreadCycle (rekomendacja z noty)
-		    TMC5160_Write(driver, 0x11, 0x0000000A); // TPOWERDOWN: Czas do uśpienia silnika
+		    TMC5160_Write(driver, REG_CHOPCONF, 0x000100C3); // CHOPCONF: Tryb SpreadCycle (rekomendacja z noty)
+		    TMC5160_Write(driver, REG_TPOWERDWN, 0x0000000A); // TPOWERDOWN: Czas do uśpienia silnika
 		    TMC5160_Write(driver, REG_GCONF, 0x00000004); // GCONF: Włączenie trybu cichego (StealthChop)
-		    TMC5160_Write(driver, 0x13, 0x000001F4); // TPWM_THRS: Próg prędkości dla trybu cichego
+		    TMC5160_Write(driver, REG_TPWMTHRS, 0x000001F4); // TPWM_THRS: Próg prędkości dla trybu cichego
 
 
 		    uint32_t current_val = (config->hold_current & 0x1F) |
@@ -75,16 +90,17 @@ void TMC5160_Init(TMC5160_t *driver, TMC5160_Config_t *config) {
 		    TMC5160_Write(driver, REG_IHOLD_IRUN, current_val);
 
 
-		    TMC5160_Write(driver, 0x24, 1000);                   // A1: Akceleracja startowa przyspieszenie na poczatku przy starcie najlepiej zeby bylo wieksze no bo trzeba rozzruszac ta kurwe
-		    TMC5160_Write(driver, 0x25, 50000);                  // V1: Próg dla AMAX ponkt odciecia dla akceleracji startowej przy ilu krokkach/s ma sie przelalczyc na to zwykle A
+		    TMC5160_Write(driver, REG_A1, 1000);                   // A1: Akceleracja startowa przyspieszenie na poczatku przy starcie najlepiej zeby bylo wieksze no bo trzeba rozzruszac ta kurwe
+		    TMC5160_Write(driver, REG_V1, 50000);                  // V1: Próg dla AMAX ponkt odciecia dla akceleracji startowej przy ilu krokkach/s ma sie przelalczyc na to zwykle A
 		    TMC5160_Write(driver, REG_AMAX, config->acceleration); // AMAX: Z Twojej konfiguracji glowne przyspieszenie
 		    TMC5160_Write(driver, REG_VMAX, config->max_velocity); // VMAX: Z Twojej konfiguracji predkosc przeltowoa podczas przemieszczniaa sie jesli uklad sie do niej dobije no to potem porusza sieruchem jednostajnym
-		    TMC5160_Write(driver, 0x28, 700);                    // DMAX: Hamowanie główne przyspieszenia hamowania uklad sam wylicza kiedy ma zaczac hamowac
-		    TMC5160_Write(driver, 0x2A, 1400);                   // D1: Hamowanie końcowe jak juz predkosc jest niska no to hamowanie wieksze szeby dorbze wycelowac w punmkt
-		    TMC5160_Write(driver, 0x2B, 10);                     // VSTOP: Minimalna prędkość zatrzymania
-		    TMC5160_Write(driver, REG_RAMPMODE, 0);				// tryb rampy 0 czyli pozycyjny se jedzi na target
-
-		    drive->state = TMC_STATE_READY;
+		    TMC5160_Write(driver, REG_DMAX, 700);                    // DMAX: Hamowanie główne przyspieszenia hamowania uklad sam wylicza kiedy ma zaczac hamowac
+		    TMC5160_Write(driver, REG_D1, 1400);                   // D1: Hamowanie końcowe jak juz predkosc jest niska no to hamowanie wieksze szeby dorbze wycelowac w punmkt
+		    TMC5160_Write(driver, REG_VSTOP, 10);                     // VSTOP: Minimalna prędkość zatrzymania
+		    TMC5160_Write(driver, REG_RAMPMODE, 0);		 // tryb rampy 0 czyli pozycyjny se jedzi na target
+		    TMC5160_Write(driver, REG_TCOOLTHRS, TSTEP);  // StallGuard od ~10k kroków/s tstep to czas pomiedzy krokiem wiec im nizszy ten szybciej trzeba sie krecic zeby byl stallgu zalecane 20% max velocity
+		    TMC5160_Write(driver, REG_TZEROWAIT, 500);	//20ms jak sie zatrzyma do kolejngeo ruchu
+		    driver->state = TMC_STATE_READY;
 }
 
 //publicc api
@@ -93,7 +109,7 @@ void TMC5160_Init(TMC5160_t *driver, TMC5160_Config_t *config) {
 
 
 void TMC5160_calibration_range(TMC5160_t *driver,int16_t sensitivity){
-
+	uint32_t timeout = HAL_GetTick()+5000;
 	driver->state = TMC_STATE_CALIBRATING;
 	//to do : moze zmniejszyc napiecie?
 	//zmniejszam predkosc do kalibracji zeby niczego nie rozjebac
@@ -113,6 +129,11 @@ void TMC5160_calibration_range(TMC5160_t *driver,int16_t sensitivity){
 			TMC5160_Write(driver, REG_VMAX, 0);
 			break;
 		}
+		  if(HAL_GetTick() > timeout){
+		        driver->state = TMC_STATE_ERROR;
+		        driver->last_error = TMC_STATE_TIMEOUT_ERROR; // jakis inny error timeout czy cos sie doda
+		        return;
+		    }
 	}
 	TMC5160_Write(driver, REG_XACTUAL, 0);
 	//tera w gore
@@ -128,6 +149,11 @@ void TMC5160_calibration_range(TMC5160_t *driver,int16_t sensitivity){
 				TMC5160_Write(driver, REG_VMAX, 0);
 				break;
 			}
+			  if(HAL_GetTick() > timeout){
+			        driver->state = TMC_STATE_ERROR;
+			        driver->last_error = TMC_STATE_TIMEOUT_ERROR; // albo nowy typ: TMC_ERR_TIMEOUT
+			        return;
+			    }
 		}
 
 	HAL_Delay(100); // pauzy testowo narazie
@@ -257,20 +283,34 @@ void TMC5160_DIAGNOSTIC(TMC5160_t* driver){
 
 	    uint32_t s = TMC5160_Read(driver, REG_DRV_STATUS);
 
+	    //fix this nigga
+
 	    if (s & (1 << 25))               driver->last_error = TMC_ERR_OVERTEMPERATURE;   // ot
 	    else if (s & (1 << 26))          driver->last_error = TMC_ERR_OVERTEMPERATURE;   // otpw (warning)
 	    else if (s & (1 << 24))          driver->last_error = TMC_ERR_STALL_DETECTED;    // StallGuard
 	    else if (s & ((1<<28)|(1<<27)))  driver->last_error = TMC_ERR_SHORT_TO_GROUND;   // s2ga/s2gb
 	    else if (s & ((1<<13)|(1<<12)))  driver->last_error = TMC_ERR_SHORT_TO_SUPPLY;   // s2vsa/s2vsb
 	    else if (s & ((1<<30)|(1<<29)))  driver->last_error = TMC_ERR_OPEN_LOAD;         // olb/ola
-	    else                             driver->last_error = TMC_ERR_NONE;
+	    else		                     driver->last_error = TMC_ERR_NONE;
+}
 
-	}
 
 
+
+
+//prototyp funckji krokowo enkoderowej enkoder mozna wpiac do silnika i wtedy pod rejestrem enc_daviation sam wypluwa zgubione kroki elegancko
+//trzeba bedzie do innita troche dodac rzeczy str 45
+
+//
+//void TMC5160_Lost_Steps(TMC5160_t* driver){
+//	//trzbea sprawdzac 0x3d
+//
+//}
 
 
 // to do jak przyjdzie enkoder no to dodac funckje odzczytujaca zgubione kroki z reg enc_deviation
+
+
 
 
 //dodac przerwania na krancowki ktore beda zatrzymyly nasz silniken czy cos jak zostana zrobione
