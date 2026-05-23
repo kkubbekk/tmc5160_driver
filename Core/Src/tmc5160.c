@@ -78,7 +78,7 @@ void TMC5160_Init(TMC5160_t *driver, TMC5160_Config_t *config) {
 		    TMC5160_Write(driver, REG_XACTUAL, 0x00000000); // XACTUAL: Zerowanie pozycji na starcie
 
 
-		    TMC5160_Write(driver, REG_CHOPCONF, 0x000100C3); // CHOPCONF: Tryb SpreadCycle (rekomendacja z noty)
+		    TMC5160_Write(driver, REG_CHOPCONF, 0x000100C3); // CHOPCONF: Tryb SpreadCycle (rekomendacja z datasheeta)
 		    TMC5160_Write(driver, REG_TPOWERDWN, 0x0000000A); // TPOWERDOWN: Czas do uśpienia silnika
 		    TMC5160_Write(driver, REG_GCONF, 0x00000004); // GCONF: Włączenie trybu cichego (StealthChop)
 		    TMC5160_Write(driver, REG_TPWMTHRS, 0x000001F4); // TPWM_THRS: Próg prędkości dla trybu cichego
@@ -90,7 +90,7 @@ void TMC5160_Init(TMC5160_t *driver, TMC5160_Config_t *config) {
 		    TMC5160_Write(driver, REG_IHOLD_IRUN, current_val);
 
 
-		    TMC5160_Write(driver, REG_A1, 1000);                   // A1: Akceleracja startowa przyspieszenie na poczatku przy starcie najlepiej zeby bylo wieksze no bo trzeba rozzruszac ta kurwe
+		    TMC5160_Write(driver, REG_A1, 1000);                   // A1: Akceleracja startowa przyspieszenie na poczatku przy starcie najlepiej zeby bylo wieksze no bo trzeba rozzruszac
 		    TMC5160_Write(driver, REG_V1, 50000);                  // V1: Próg dla AMAX ponkt odciecia dla akceleracji startowej przy ilu krokkach/s ma sie przelalczyc na to zwykle A
 		    TMC5160_Write(driver, REG_AMAX, config->acceleration); // AMAX: Z Twojej konfiguracji glowne przyspieszenie
 		    TMC5160_Write(driver, REG_VMAX, config->max_velocity); // VMAX: Z Twojej konfiguracji predkosc przeltowoa podczas przemieszczniaa sie jesli uklad sie do niej dobije no to potem porusza sieruchem jednostajnym
@@ -112,7 +112,7 @@ void TMC5160_calibration_range(TMC5160_t *driver,int16_t sensitivity){
 	uint32_t timeout = HAL_GetTick()+5000;
 	driver->state = TMC_STATE_CALIBRATING;
 	//to do : moze zmniejszyc napiecie?
-	//zmniejszam predkosc do kalibracji zeby niczego nie rozjebac
+	//zmniejszam predkosc do kalibracji zeby niczego nie rozwalic
 	TMC5160_SetSpeedPercent(driver,5);
 	//uzytkownik dopbiera czulosc to sie przetestuje
 	uint32_t value = (sensitivity & 0x7F) << 16;
@@ -151,7 +151,7 @@ void TMC5160_calibration_range(TMC5160_t *driver,int16_t sensitivity){
 			}
 			  if(HAL_GetTick() > timeout){
 			        driver->state = TMC_STATE_ERROR;
-			        driver->last_error = TMC_STATE_TIMEOUT_ERROR; // albo nowy typ: TMC_ERR_TIMEOUT
+			        driver->last_error = TMC_STATE_TIMEOUT_ERROR;
 			        return;
 			    }
 		}
@@ -283,7 +283,7 @@ void TMC5160_DIAGNOSTIC(TMC5160_t* driver){
 
 	    uint32_t s = TMC5160_Read(driver, REG_DRV_STATUS);
 
-	    //fix this nigga
+	    //fix this
 
 	    if (s & (1 << 25))               driver->last_error = TMC_ERR_OVERTEMPERATURE;   // ot
 	    else if (s & (1 << 26))          driver->last_error = TMC_ERR_OVERTEMPERATURE;   // otpw (warning)

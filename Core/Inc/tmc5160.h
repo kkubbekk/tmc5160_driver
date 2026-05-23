@@ -1,7 +1,7 @@
 #ifndef TMC5160_H_
-#define TM5C160_H_
+#define TMC5160_H_
 
-#include "main.h" // Tutaj są definicje SPI_TypeDef, GPIO_TypeDef itp.
+#include "main.h"
 
 #define I_RS 1.906
 
@@ -93,7 +93,7 @@ typedef enum {
 
 } TMC5160_Reg_t;
 
-// 5. Unia do ramek SPI
+// Unia do ramek SPI
 typedef union {
     struct __attribute__((packed)) {
         uint8_t  addr;
@@ -105,14 +105,28 @@ typedef union {
 
 
 
-//chuj wie
+
 void TMC5160_Init(TMC5160_t *driver, TMC5160_Config_t *config);
 void TMC5160_Write(TMC5160_t *driver, uint8_t reg, uint32_t value);
 uint32_t TMC5160_Read(TMC5160_t *driver, uint8_t reg);
+
+// Motion Control
 void TMC5160_SetSpeedPercent(TMC5160_t *driver, uint8_t percent);
-void TMC5160_calibration_range(TMC5160_t *driver,int16_t sensitivity);
+uint32_t TMC5160_ReadSPeedPercent(TMC5160_t *driver);
+void TMC5160_set_target_percent(TMC5160_t *driver, int8_t percent);
+int8_t TMC5160_read_target_percent(TMC5160_t *driver);
+
+// Calibration & Features
+void TMC5160_calibration_range(TMC5160_t *driver, int16_t sensitivity);
+void TMC5160_EnableCoolStep(TMC5160_t *driver, uint32_t semin, uint32_t semax, uint32_t seimin);
+
+// Current reading
 float TMC5160_read_current_irun(TMC5160_t *driver);
 float TMC5160_read_current_ihold(TMC5160_t *driver);
+
+// Diagnostics (RTOS & Status)
+int8_t TMC5160_RTOS_Quick_Check(TMC5160_t* driver);
+void TMC5160_DIAGNOSTIC(TMC5160_t* driver);
 
 
 
