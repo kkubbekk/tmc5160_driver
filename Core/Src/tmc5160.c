@@ -1,6 +1,6 @@
 #include "tmc5160.h"
 #include <stdlib.h>
-//huj
+
 #define MAX_SAFE_VELOCITY 200000
 #define TSTEP ((uint32_t)(16777216.0f / (MAX_SAFE_VELOCITY * 0.2f))) //2^24 wzor z dokumentacji
 
