@@ -176,7 +176,61 @@ bool TMC5160_Read_DMA_Start(TMC5160_t *driver, uint8_t reg) {
 //-------------------------------------------calback co pinc bajtow --------------------------------------------------------------------
 
 void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi) {
+	TMC5160_t* driver = current_driver_pointer;
+	switch(case->dma_status)
+	{	
+		case WRITE:
 
+			TM_CS_High(driver);
+		
+			driver->status = *(TMC5160_Status_t*)&driver->rx_buf[0];
+			driver->is_busy = false;
+			driver->dma_status = NONE;
+			current_driver_pointer = NULL;
+			break;
+
+		case READ_PH1:
+			TM_CS_High(driver);
+			driver->status = *(TMC5160_Status_t*)&driver->rx_buf[0];
+			driver->dma_status = READ_PH2;
+			driver->tx_buf[0] = 0x00;
+			driver->tx_buf[1] = 0; driver->tx_buf[2] = 0; driver->tx_buf[3] = 0; driver->tx_buf[4] = 0;
+
+			TM_CS_Low(driver);
+			if (HAL_SPI_TransmitReceive_DMA(driver->hspi, driver->tx_buf, driver->rx_buf, 5) != HAL_OK) {
+		        TM_CS_High(driver);
+				driver->is_busy = false;
+		        driver->dma_status = NONE;
+		        current_driver_pointer = NULL;
+		    }
+			break;
+		case READ_PH2;
+			TM_CS_High(driver);
+			driver->status = *(TMC5160_Status_t*)&driver->rx_buf[0];
+			
+			uint32_t payload = ((uint32_t)drv->rx_buf[1] << 24) |
+                               ((uint32_t)drv->rx_buf[2] << 16) |
+                               ((uint32_t)drv->rx_buf[3] << 8)  |
+                                (uint32_t)drv->rx_buf[4];
+			
+			driver->dma_rx_data= payload;
+
+			driver->is_busy = false;
+			driver->dma_status = NONE;
+			current_driver_pointer = NULL;
+			break;
+		
+		default:
+           
+            TM_CS_High(drv);
+            drv->is_busy = false;
+            current_driver_pointer = NULL;
+            break;
+
+
+
+		
+			
 }
 
 
